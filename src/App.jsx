@@ -1,9 +1,9 @@
 import React, { useState, useMemo } from 'react';
-import { Lock, Unlock, KeyRound, Brain, Shuffle, Play, Check, X, Copy, Zap, ArrowDown, Hash, MessageSquare, Binary, Eye } from 'lucide-react';
+import { Lock, Unlock, KeyRound, Brain, Shuffle, Play, Check, X, Copy, Zap, ArrowDown, Hash, MessageSquare, Binary, Eye, Download, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import { cn } from './lib/utils';
 // Import new math functions
-import { gcd, modInverse, generateRandomPrime, isPrime, textToBigInt, bigIntToText, modPowWithSteps } from './lib/rsa-math.js';
+import { gcd, modInverse, generateRandomPrime, isPrime, textToBigInt, bigIntToText, modPowWithSteps, modPow } from './rsa-math.js';
 
 // --- Main App Component ---
 
@@ -547,7 +547,7 @@ function EncryptionVisualizer({
                 placeholder="e.g., HI"
                 className="w-full bg-gray-900 border text-gray-100 rounded-lg p-3 pl-4 pr-10 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-colors border-gray-700"
               />
-              <MessageSquare className="absolute right-3 top-1/2 -translate-y-1/small-5 h-5" />
+              <MessageSquare className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5" />
             </div>
           </div>
           
@@ -689,19 +689,214 @@ function DecryptionVisualizer({
 }
 
 
-// Placeholder for Encryptor/Decryptor (unchanged)
+// --- Encryptor/Decryptor Component (REPLACING PLACEHOLDER) ---
 function EncryptorDecryptor() {
+  const [n, setN] = useState(null);
+  const [e, setE] = useState(null);
+  const [d, setD] = useState(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [activeTab, setActiveTab] = useState('encrypt'); // 'encrypt' or 'decrypt'
+  
+  // Encrypt tab state
+  const [encryptInput, setEncryptInput] = useState('');
+  const [encryptOutput, setEncryptOutput] = useState('');
+  
+  // Decrypt tab state
+  const [decryptInput, setDecryptInput] = useState('');
+  const [decryptOutput, setDecryptOutput] = useState('');
+  const [decryptError, setDecryptError] = useState('');
+
+  const handleGenerateKeys = () => {
+    setIsGenerating(true);
+    // Use slightly larger primes for this mode
+    // We do this in a timeout to allow the UI to update
+    setTimeout(() => {
+      const pVal = BigInt(generateRandomPrime(100, 250));
+      let qVal = BigInt(generateRandomPrime(100, 250));
+      while (pVal === qVal) {
+        qVal = BigInt(generateRandomPrime(100, 250));
+      }
+      
+      const nCalc = pVal * qVal;
+      const phiCalc = (pVal - 1n) * (qVal - 1n);
+      
+      // Use a common e=65537
+      const eVal = 65537n;
+      setE(eVal);
+      
+      const dCalc = modInverse(eVal, phiCalc);
+      setD(dCalc);
+      setN(nCalc);
+      
+      // Reset inputs/outputs
+      setEncryptInput('');
+      setEncryptOutput('');
+      setDecryptInput('');
+      setDecryptOutput('');
+      setDecryptError('');
+      
+      setIsGenerating(false);
+    }, 50); // 50ms timeout
+  };
+  
+  const handleEncrypt = () => {
+    if (!encryptInput || !n || !e) return;
+    
+    const mVal = textToBigInt(encryptInput);
+    if (mVal >= n) {
+      setEncryptOutput("Error: Message is too long for the generated key size. Try a shorter message or re-generate keys.");
+      return;
+    }
+    
+    const cVal = modPow(mVal, e, n);
+    setEncryptOutput(cVal.toString());
+  };
+  
+  const handleDecrypt = () => {
+    if (!decryptInput || !n || !d) return;
+    
+    try {
+      const cVal = BigInt(decryptInput);
+      if (cVal >= n) {
+        setDecryptError("Ciphertext number is larger than n. This key pair cannot decrypt it.");
+        setDecryptOutput('');
+        return;
+      }
+      
+      const mVal = modPow(cVal, d, n);
+      const mText = bigIntToText(mVal);
+      setDecryptOutput(mText);
+      setDecryptError('');
+      
+    } catch (err) {
+      setDecryptError("Invalid input. Please paste the exact ciphertext number.");
+      setDecryptOutput('');
+    }
+  };
+  
+  const isKeyReady = n && e && d;
+
   return (
     <Card>
       <CardHeader
         icon={<Lock className="w-6 h-6" />}
         title="Encrypt/Decrypt Mode"
-        subtitle="Use a generated key pair to encrypt and decrypt messages."
+        subtitle="Generate a key pair and securely encrypt/decrypt messages."
       />
       <div className="p-6">
-        <p className="text-gray-400 text-center">
-          This section will be built in the next steps!
-        </p>
+        <div className="flex flex-col md:flex-row gap-6">
+          {/* --- Key Generation & Display --- */}
+          <div className="flex-1 flex flex-col gap-4 p-4 bg-gray-900 rounded-lg border border-gray-700">
+            <h3 className="text-lg font-semibold text-cyan-400">Your Key Pair</h3>
+            <Button
+              onClick={handleGenerateKeys}
+              disabled={isGenerating}
+              className="w-full"
+            >
+              {isGenerating ? (
+                <RefreshCw className="w-5 h-5 animate-spin" />
+              ) : (
+                <Zap className="w-5 h-5" />
+              )}
+              {isGenerating ? 'Generating...' : 'Generate 16-bit Key Pair'}
+            </Button>
+            
+            <AnimatePresence>
+              {isKeyReady && (
+                <motion.div 
+                  className="flex flex-col gap-3"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                >
+                  <KeyDisplayBox label="Public Key (n)" value={n} />
+                  <KeyDisplayBox label="Public Key (e)" value={e} />
+                  <KeyDisplayBox label="Private Key (d)" value={d} />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+          
+          {/* --- Encrypt/Decrypt Tabs --- */}
+          <div className="flex-[2] flex flex-col">
+            <div className="flex border-b border-gray-700">
+              <TabButton
+                label="Encrypt"
+                icon={<Lock className="w-5 h-5" />}
+                isActive={activeTab === 'encrypt'}
+                onClick={() => setActiveTab('encrypt')}
+              />
+              <TabButton
+                label="Decrypt"
+                icon={<Unlock className="w-5 h-5" />}
+                isActive={activeTab === 'decrypt'}
+                onClick={() => setActiveTab('decrypt')}
+              />
+            </div>
+            
+            <div className="pt-6">
+              <AnimatePresence mode="wait">
+                {activeTab === 'encrypt' && (
+                  <motion.div
+                    key="encrypt-tab"
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 10 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <h3 className="text-lg font-semibold mb-2">Encrypt Message</h3>
+                    <p className="text-sm text-gray-400 mb-4">Uses the Public Key (e, n)</p>
+                    <TextArea
+                      label="Plaintext to Encrypt"
+                      value={encryptInput}
+                      onChange={setEncryptInput}
+                      placeholder="Enter your secret message..."
+                    />
+                    <Button onClick={handleEncrypt} disabled={!isKeyReady || !encryptInput} className="mt-4">
+                      <Lock className="w-5 h-5" /> Encrypt
+                    </Button>
+                    <TextArea
+                      label="Encrypted Ciphertext (Copy this)"
+                      value={encryptOutput}
+                      readOnly
+                      placeholder="Your encrypted number will appear here..."
+                      className="mt-4"
+                    />
+                  </motion.div>
+                )}
+                
+                {activeTab === 'decrypt' && (
+                  <motion.div
+                    key="decrypt-tab"
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 10 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <h3 className="text-lg font-semibold mb-2">Decrypt Message</h3>
+                    <p className="text-sm text-gray-400 mb-4">Uses the Private Key (d, n)</p>
+                    <TextArea
+                      label="Ciphertext to Decrypt"
+                      value={decryptInput}
+                      onChange={setDecryptInput}
+                      placeholder="Paste your encrypted number here..."
+                      error={decryptError}
+                    />
+                    <Button onClick={handleDecrypt} disabled={!isKeyReady || !decryptInput} className="mt-4">
+                      <Unlock className="w-5 h-5" /> Decrypt
+                    </Button>
+                    <TextArea
+                      label="Decrypted Plaintext"
+                      value={decryptOutput}
+                      readOnly
+                      placeholder="Your original message will appear here..."
+                      className="mt-4"
+                    />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </div>
+        </div>
       </div>
     </Card>
   );
@@ -777,7 +972,7 @@ function ValueBox({ label, value, formula, className, icon }) {
 }
 
 function ValuedBox({ label, value, formula, className }) {
-  const [copied, setCopied] =useState(false);
+  const [copied, setCopied] = useState(false);
   const displayValue = value !== null ? value.toString() : '...';
   
   const handleCopy = () => {
@@ -841,5 +1036,77 @@ function ToggleButton({ onClick, isActive, icon, label }) {
       <span className="relative z-10">{icon}</span>
       <span className="relative z-10">{label}</span>
     </button>
+  );
+}
+
+// --- NEW Components for EncryptorDecryptor Mode ---
+
+function KeyDisplayBox({ label, value }) {
+  const [copied, setCopied] = useState(false);
+  const displayValue = value ? value.toString() : '...';
+
+  const handleCopy = () => {
+    if (value) {
+      navigator.clipboard.writeText(displayValue);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  return (
+    <div className="flex flex-col p-3 bg-gray-800 rounded-lg border border-gray-700">
+      <label className="text-sm font-medium text-gray-400">{label}</label>
+      <div className="flex items-center gap-2 mt-1">
+        <p className="text-lg font-mono text-cyan-300 truncate">
+          {displayValue}
+        </p>
+        <button onClick={handleCopy} className="text-gray-500 hover:text-cyan-400 ml-auto flex-shrink-0">
+          {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function TabButton({ label, icon, isActive, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "relative flex-1 flex items-center justify-center gap-2 p-3 text-sm font-medium transition-colors",
+        isActive ? "text-cyan-300" : "text-gray-400 hover:text-white"
+      )}
+    >
+      {icon}
+      {label}
+      {isActive && (
+        <motion.div
+          layoutId="active-tab-indicator"
+          className="absolute bottom-0 left-0 right-0 h-0.5 bg-cyan-400"
+          transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+        />
+      )}
+    </button>
+  );
+}
+
+function TextArea({ label, value, onChange, placeholder, readOnly = false, className, error }) {
+  return (
+    <div className={cn("flex flex-col", className)}>
+      <label className="text-sm font-medium text-gray-300 mb-1.5">{label}</label>
+      <textarea
+        value={value}
+        onChange={(e) => onChange && onChange(e.target.value)}
+        placeholder={placeholder}
+        readOnly={readOnly}
+        rows={4}
+        className={cn(
+          "w-full bg-gray-900 border text-gray-100 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-colors",
+          readOnly ? "bg-gray-800/50" : "border-gray-700",
+          error ? "border-red-500 focus:ring-red-500" : "border-gray-700"
+        )}
+      />
+      {error && <p className="text-sm text-red-400 mt-1.5">{error}</p>}
+    </div>
   );
 }
