@@ -96,3 +96,86 @@ export const modPow = (base, exponent, modulus) => {
   }
   return result;
 };
+
+/**
+ * Converts a text string to a BigInt.
+ * Each character is treated as a byte.
+ * @param {string} text The text to encode.
+ * @returns {bigint} The resulting BigInt.
+ */
+export const textToBigInt = (text) => {
+  const encoder = new TextEncoder();
+  const encoded = encoder.encode(text);
+  let result = 0n;
+  for (let i = 0; i < encoded.length; i++) {
+    result = (result << 8n) + BigInt(encoded[i]);
+  }
+  return result;
+};
+
+/**
+ * Converts a BigInt back to a text string.
+ * @param {bigint} bigIntValue The BigInt to decode.
+ * @returns {string} The resulting text string.
+ */
+export const bigIntToText = (bigIntValue) => {
+  let hexString = bigIntValue.toString(16);
+  if (hexString.length % 2 !== 0) {
+    hexString = '0' + hexString; // Ensure even length
+  }
+  
+  const bytes = [];
+  for (let i = 0; i < hexString.length; i += 2) {
+    bytes.push(parseInt(hexString.substring(i, i + 2), 16));
+  }
+  
+  const decoder = new TextDecoder();
+  return decoder.decode(new Uint8Array(bytes));
+};
+
+/**
+ * Performs modular exponentiation and returns an array of steps for visualization.
+ * (base^exponent % modulus)
+ * @param {bigint} base
+ * @param {bigint} exponent
+ * @param {bigint} modulus
+ * @returns {{steps: Array<string>, result: bigint}} An object containing the steps and the final result.
+ */
+export const modPowWithSteps = (base, exponent, modulus) => {
+  const steps = [];
+  if (modulus === 1n) return { steps: ["Modulus is 1, result is 0."], result: 0n };
+
+  let result = 1n;
+  let b = base % modulus;
+  let exp = exponent;
+  const binaryExp = exp.toString(2);
+  steps.push(`Calculating (base ^ exponent) % modulus`);
+  steps.push(`(${base} ^ ${exponent}) % ${modulus}`);
+  steps.push(`Exponent in binary: ${binaryExp}`);
+  steps.push("---");
+  steps.push(`Initialize result = 1n`);
+
+  for (let i = binaryExp.length - 1; i >= 0; i--) {
+    const bit = binaryExp[i];
+    steps.push(`\nBit ${binaryExp.length - 1 - i} (from right) = ${bit}`);
+    
+    if (bit === '1') {
+      steps.push(`Bit is 1: result = (result * base) % modulus`);
+      steps.push(`result = (${result} * ${b}) % ${modulus} = ${(result * b) % modulus}`);
+      result = (result * b) % modulus;
+    } else {
+      steps.push(`Bit is 0: result remains ${result}`);
+    }
+
+    if (i > 0) {
+      steps.push(`Square base: base = (base * base) % modulus`);
+      steps.push(`base = (${b} * ${b}) % ${modulus} = ${(b * b) % modulus}`);
+      b = (b * b) % modulus;
+    }
+  }
+  
+  steps.push("---");
+  steps.push(`Final exponent bit processed. Result = ${result}`);
+
+  return { steps, result };
+};
