@@ -2,8 +2,10 @@ import React, { useState, useMemo } from 'react';
 import { Lock, Unlock, KeyRound, Brain, Shuffle, Play, Check, X, Copy, Zap, ArrowDown, Hash, MessageSquare, Binary, Eye } from 'lucide-react';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import { cn } from './lib/utils';
-import { gcd, modInverse, generateRandomPrime, isPrime, textToBigInt, bigIntToText, modPowWithSteps } from './rsa-math';
+// Import new math functions
+import { gcd, modInverse, generateRandomPrime, isPrime, textToBigInt, bigIntToText, modPowWithSteps } from './lib/rsa-math.js';
 
+// --- Main App Component ---
 
 export default function App() {
   const [mode, setMode] = useState('visualizer'); // 'visualizer' or 'encryptor'
@@ -92,6 +94,8 @@ function Footer() {
     </footer>
   );
 }
+
+// --- NEW State Container ---
 
 /**
  * This component now holds all the shared state for the
@@ -366,6 +370,8 @@ function VisualizerModeContainer() {
 }
 
 
+// --- Core Components ---
+
 /**
  * KeyGenerationVisualizer
  */
@@ -505,6 +511,9 @@ function KeyGenerationVisualizer({
   );
 }
 
+/**
+ * Encryption Visualizer Component
+ */
 function EncryptionVisualizer({
   n, e,
   plaintext, setPlaintext,
@@ -538,7 +547,7 @@ function EncryptionVisualizer({
                 placeholder="e.g., HI"
                 className="w-full bg-gray-900 border text-gray-100 rounded-lg p-3 pl-4 pr-10 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-colors border-gray-700"
               />
-              <MessageSquare className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 w-5 h-5" />
+              <MessageSquare className="absolute right-3 top-1/2 -translate-y-1/small-5 h-5" />
             </div>
           </div>
           
@@ -596,6 +605,9 @@ function EncryptionVisualizer({
   );
 }
 
+/**
+ * --- NEW Decryption Visualizer Component ---
+ */
 function DecryptionVisualizer({
   n, d,
   ciphertext,
@@ -765,7 +777,7 @@ function ValueBox({ label, value, formula, className, icon }) {
 }
 
 function ValuedBox({ label, value, formula, className }) {
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] =useState(false);
   const displayValue = value !== null ? value.toString() : '...';
   
   const handleCopy = () => {
