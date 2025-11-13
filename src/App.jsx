@@ -542,7 +542,6 @@ function EncryptionVisualizer({
                 value={plaintext}
                 onChange={(e) => {
                   setPlaintext(e.target.value);
-                  resetEncryption(); // Clear old results if text changes
                 }}
                 placeholder="e.g., HI"
                 className="w-full bg-gray-900 border text-gray-100 rounded-lg p-3 pl-4 pr-10 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-colors border-gray-700"
